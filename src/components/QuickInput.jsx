@@ -15,7 +15,7 @@ export default function QuickInput({ onAdd }) {
     // If 'transfer', we can show a direction toggle later. For MPV: Current -> Savings.
     const [transferDir, setTransferDir] = useState('to_savings'); // to_savings, to_current
 
-    const { expenseCategories, incomeCategories } = require('../data/categories'); // Note: If this fails in Vite (likely), we should use import at top level.
+
     // Actually, let's fix this properly now.
 
     // In React/Vite, we should not use require inside render.
