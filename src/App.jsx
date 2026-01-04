@@ -153,6 +153,7 @@ function App() {
         <BalanceSetupModal
           onSave={handleBalanceSave}
           onClose={() => setShowBalanceSetup(false)}
+          storageType={storageType}
         />
       )}
     </div>

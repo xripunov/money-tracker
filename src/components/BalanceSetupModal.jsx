@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { isTelegramEnv } from '../utils/telegramStorage';
 
-export default function BalanceSetupModal({ initialBalances, onSave, onClose }) {
+export default function BalanceSetupModal({ initialBalances, onSave, onClose, storageType }) {
     const [current, setCurrent] = useState('');
     const [savings, setSavings] = useState('');
 
@@ -73,6 +74,14 @@ export default function BalanceSetupModal({ initialBalances, onSave, onClose }) 
                     <button className="modal-btn save" onClick={handleSave}>
                         ✓ Сохранить
                     </button>
+                </div>
+
+                <div className="debug-info" style={{ marginTop: '20px', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
+                    <div style={{ marginBottom: '4px' }}>📡 <strong>Sync Status:</strong></div>
+                    <div>Storage: {storageType === 'cloudStorage' ? '☁️ Cloud' : '💾 Local'}</div>
+                    <div>Telegram API: {isTelegramEnv() ? '✅ Detected' : '❌ Not Detected'}</div>
+                    <div>Platform: {window.Telegram?.WebApp?.platform || 'Unknown'}</div>
+                    <div>User ID: {window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'Unknown'}</div>
                 </div>
             </div>
         </div>
