@@ -21,7 +21,6 @@ export const incomeCategories = [
     { id: 'other', name: 'Другое', icon: '💵' },
 ];
 
-// Accounts
 export const accounts = [
     { id: 'current', name: 'Текущий', icon: '💳' },
     { id: 'savings', name: 'Накопления', icon: '🏦' },

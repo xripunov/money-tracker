@@ -12,14 +12,21 @@ export default function BalanceSetupModal({ initialBalances, onSave, onClose, st
     });
 
     useEffect(() => {
-        const saved = localStorage.getItem('initial-balances');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                setCurrent(String(parsed.current || 0));
-                setSavings(String(parsed.savings || 0));
-            } catch (e) {
-                console.error("Error parsing initial balances", e);
+        // Use passed initialBalances prop if available, otherwise try to load from local (though prop is preferred)
+        if (initialBalances) {
+            setCurrent(String(initialBalances.current || 0));
+            setSavings(String(initialBalances.savings || 0));
+        } else {
+            // Fallback
+            const saved = localStorage.getItem('initial-balances');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setCurrent(String(parsed.current || 0));
+                    setSavings(String(parsed.savings || 0));
+                } catch (e) {
+                    console.error("Error parsing initial balances", e);
+                }
             }
         }
 
@@ -44,14 +51,14 @@ export default function BalanceSetupModal({ initialBalances, onSave, onClose, st
                 userId: 'Error'
             });
         }
-    }, [storageType]);
+    }, [initialBalances, storageType]);
 
     const handleSave = () => {
         const newBalances = {
             current: parseFloat(current) || 0,
             savings: parseFloat(savings) || 0,
         };
-        localStorage.setItem('initial-balances', JSON.stringify(newBalances));
+        // Don't save to localStorage manually here, rely on the onSave callback which will call updateInitialBalances
         onSave(newBalances);
         onClose();
     };

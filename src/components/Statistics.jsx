@@ -1,55 +1,39 @@
-import { useState, useEffect, useMemo } from 'react';
-import { getCategoryById } from '../data/categories';
-import { useAIAnalysis } from '../hooks/useAIAnalysis';
-import AIAdvice from './AIAdvice';
+import { useState, useMemo } from 'react';
+import { expenseCategories, incomeCategories, getCategoryById } from '../data/categories';
 
 export default function Statistics({ getStats, transactions }) {
     const [viewMode, setViewMode] = useState('relative'); // 'relative' or 'month'
-    const [period, setPeriod] = useState('week');
+    const [period, setPeriod] = useState('month'); // day, week, month (for relative)
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
 
-    const { loading, advice, error, generateAdvice, clearAdvice, isConfigured } = useAIAnalysis();
+    const stats = useMemo(() => getStats(period), [getStats, period, transactions]);
 
-    // Get available months from transactions
-    const availableMonths = useMemo(() => {
-        if (!transactions || transactions.length === 0) return [];
-
-        const months = new Set();
-        transactions.forEach(t => {
-            const date = new Date(t.date);
-            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            months.add(key);
-        });
-
-        return Array.from(months).sort().reverse();
-    }, [transactions]);
-
-    // Calculate stats for a specific month
+    // Specific month stats
     const monthStats = useMemo(() => {
-        if (!transactions || viewMode !== 'month') return null;
+        if (viewMode !== 'month') return null;
 
         const [year, month] = selectedMonth.split('-').map(Number);
-        const monthStart = new Date(year, month - 1, 1);
-        const monthEnd = new Date(year, month, 0, 23, 59, 59);
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0, 23, 59, 59);
 
-        const monthTransactions = transactions.filter(t => {
-            const date = new Date(t.date);
-            return date >= monthStart && date <= monthEnd;
+        const filtered = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d >= start && d <= end;
         });
 
-        const expenses = monthTransactions
+        const expenses = filtered
             .filter(t => t.type === 'expense')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        const income = monthTransactions
+        const income = filtered
             .filter(t => t.type === 'income')
             .reduce((sum, t) => sum + t.amount, 0);
 
         const categoryTotals = {};
-        monthTransactions
+        filtered
             .filter(t => t.type === 'expense')
             .forEach(t => {
                 categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
@@ -63,177 +47,127 @@ export default function Statistics({ getStats, transactions }) {
             }))
             .sort((a, b) => b.amount - a.amount);
 
-        return {
-            expenses,
-            income,
-            balance: income - expenses,
-            categoryBreakdown,
-            transactionCount: monthTransactions.length,
-        };
+        return { expenses, income, categoryBreakdown };
     }, [transactions, selectedMonth, viewMode]);
 
-    const stats = viewMode === 'month' ? monthStats : getStats(period);
-
-    useEffect(() => {
-        clearAdvice();
-    }, [period, selectedMonth, viewMode, clearAdvice]);
-
-    const periodLabels = {
-        day: 'День',
-        week: 'Неделя',
-        month: 'Месяц',
-    };
-
-    const formatMonthLabel = (monthKey) => {
-        const [year, month] = monthKey.split('-').map(Number);
-        const date = new Date(year, month - 1);
-        return date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
-    };
+    const currentStats = viewMode === 'relative' ? stats : monthStats;
 
     const navigateMonth = (direction) => {
         const [year, month] = selectedMonth.split('-').map(Number);
-        const date = new Date(year, month - 1 + direction);
+        const date = new Date(year, month - 1 + direction, 1);
         setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
     };
 
-    const formatChange = (change) => {
-        if (!change || change === 0) return null;
-        const isUp = change > 0;
-        return (
-            <span className={`stats-card-change ${isUp ? 'up' : 'down'}`}>
-                {isUp ? '↑' : '↓'} {Math.abs(change).toFixed(0)}%
-            </span>
-        );
+    const formatMonth = (isoMonth) => {
+        const [year, month] = isoMonth.split('-').map(Number);
+        return new Date(year, month - 1).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
     };
-
-    const handleGenerateAdvice = () => {
-        generateAdvice(stats, viewMode === 'month' ? 'month' : period);
-    };
-
-    if (!stats) return null;
 
     return (
-        <div className="stats-page">
-            {/* View mode toggle */}
-            <div className="view-mode-toggle">
-                <button
-                    className={`view-mode-btn ${viewMode === 'relative' ? 'active' : ''}`}
-                    onClick={() => setViewMode('relative')}
-                >
-                    Период
-                </button>
-                <button
-                    className={`view-mode-btn ${viewMode === 'month' ? 'active' : ''}`}
-                    onClick={() => setViewMode('month')}
-                >
-                    По месяцам
-                </button>
-            </div>
+        <div className="statistics">
+            <div className="stats-header">
+                <h2>Статистика</h2>
 
-            {viewMode === 'relative' ? (
-                <div className="period-selector">
-                    {Object.entries(periodLabels).map(([key, label]) => (
+                <div className="view-toggle" style={{ display: 'flex', gap: '8px', background: 'var(--bg-input)', padding: '4px', borderRadius: '8px', marginBottom: '12px' }}>
+                    <button
+                        onClick={() => setViewMode('relative')}
+                        style={{ flex: 1, padding: '6px', border: 'none', borderRadius: '6px', background: viewMode === 'relative' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'relative' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                    >
+                        Период
+                    </button>
+                    <button
+                        onClick={() => setViewMode('month')}
+                        style={{ flex: 1, padding: '6px', border: 'none', borderRadius: '6px', background: viewMode === 'month' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'month' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                    >
+                        Месяц
+                    </button>
+                </div>
+
+                {viewMode === 'relative' ? (
+                    <div className="period-toggle">
                         <button
-                            key={key}
-                            className={`period-btn ${period === key ? 'active' : ''}`}
-                            onClick={() => setPeriod(key)}
+                            className={`period-btn ${period === 'day' ? 'active' : ''}`}
+                            onClick={() => setPeriod('day')}
                         >
-                            {label}
+                            День
                         </button>
-                    ))}
-                </div>
-            ) : (
-                <div className="month-navigator">
-                    <button className="month-nav-btn" onClick={() => navigateMonth(-1)}>
-                        ←
-                    </button>
-                    <span className="month-label">{formatMonthLabel(selectedMonth)}</span>
-                    <button className="month-nav-btn" onClick={() => navigateMonth(1)}>
-                        →
-                    </button>
-                </div>
-            )}
-
-            <AIAdvice
-                advice={advice}
-                loading={loading}
-                error={error}
-                onGenerate={handleGenerateAdvice}
-                isConfigured={isConfigured}
-            />
-
-            <div className="stats-card">
-                <div className="stats-card-title">
-                    Расходы {viewMode === 'month' ? '' : `за ${periodLabels[period].toLowerCase()}`}
-                </div>
-                <div className="stats-card-value" style={{ color: 'var(--danger)' }}>
-                    {stats.expenses.toLocaleString('ru-RU')} ₽
-                </div>
-                {viewMode === 'relative' && formatChange(stats.expenseChange)}
-            </div>
-
-            <div className="stats-card">
-                <div className="stats-card-title">
-                    Доходы {viewMode === 'month' ? '' : `за ${periodLabels[period].toLowerCase()}`}
-                </div>
-                <div className="stats-card-value" style={{ color: 'var(--success)' }}>
-                    {stats.income.toLocaleString('ru-RU')} ₽
-                </div>
-                {viewMode === 'relative' && formatChange(-stats.incomeChange)}
-            </div>
-
-            <div className="stats-card">
-                <div className="stats-card-title">
-                    Баланс {viewMode === 'month' ? '' : `за ${periodLabels[period].toLowerCase()}`}
-                </div>
-                <div
-                    className="stats-card-value"
-                    style={{ color: stats.balance >= 0 ? 'var(--success)' : 'var(--danger)' }}
-                >
-                    {stats.balance >= 0 ? '+' : ''}{stats.balance.toLocaleString('ru-RU')} ₽
-                </div>
-            </div>
-
-            {stats.categoryBreakdown && stats.categoryBreakdown.length > 0 && (
-                <div className="stats-card">
-                    <div className="stats-card-title">Расходы по категориям</div>
-                    <div className="category-breakdown">
-                        {stats.categoryBreakdown.map((item) => {
-                            const category = getCategoryById(item.category, 'expense');
-                            return (
-                                <div key={item.category} className="category-row">
-                                    <span className="category-row-icon">{category.icon}</span>
-                                    <div className="category-row-info">
-                                        <div className="category-row-name">{category.name}</div>
-                                        <div className="category-row-bar">
-                                            <div
-                                                className="category-row-bar-fill"
-                                                style={{ width: `${item.percent}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="category-row-amount">
-                                        <div className="category-row-value">
-                                            {item.amount.toLocaleString('ru-RU')} ₽
-                                        </div>
-                                        <div className="category-row-percent">
-                                            {item.percent.toFixed(0)}%
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        <button
+                            className={`period-btn ${period === 'week' ? 'active' : ''}`}
+                            onClick={() => setPeriod('week')}
+                        >
+                            Неделя
+                        </button>
+                        <button
+                            className={`period-btn ${period === 'month' ? 'active' : ''}`}
+                            onClick={() => setPeriod('month')}
+                        >
+                            Месяц
+                        </button>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="month-nav">
+                        <button className="nav-arrow" onClick={() => navigateMonth(-1)}>←</button>
+                        <span className="current-month" style={{ textTransform: 'capitalize' }}>{formatMonth(selectedMonth)}</span>
+                        <button className="nav-arrow" onClick={() => navigateMonth(1)}>→</button>
+                    </div>
+                )}
+            </div>
 
-            {stats.transactionCount === 0 && (
-                <div className="empty-state">
-                    <div className="empty-icon">📊</div>
-                    <div className="empty-title">Нет данных</div>
-                    <div className="empty-text">За этот период нет транзакций</div>
+            <div className="stats-summary">
+                <div className="stat-card">
+                    <div className="stat-label">Расходы</div>
+                    <div className="stat-value expense">
+                        {Math.round(currentStats.expenses).toLocaleString('ru-RU')} ₽
+                    </div>
+                    {viewMode === 'relative' && (
+                        <div style={{ fontSize: '12px', color: stats.expenseChange > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                            {stats.expenseChange > 0 ? '+' : ''}{Math.round(stats.expenseChange)}%
+                        </div>
+                    )}
                 </div>
-            )}
+                <div className="stat-card">
+                    <div className="stat-label">Доходы</div>
+                    <div className="stat-value income">
+                        {Math.round(currentStats.income).toLocaleString('ru-RU')} ₽
+                    </div>
+                    {viewMode === 'relative' && (
+                        <div style={{ fontSize: '12px', color: stats.incomeChange > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                            {stats.incomeChange > 0 ? '+' : ''}{Math.round(stats.incomeChange)}%
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="category-stats">
+                <h3>По категориям</h3>
+                {currentStats.categoryBreakdown.map((item) => {
+                    const cat = getCategoryById(item.category);
+                    return (
+                        <div key={item.category} className="cat-stat-item">
+                            <span style={{ fontSize: '20px' }}>{cat.icon}</span>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <span style={{ fontSize: '14px' }}>{cat.name}</span>
+                                    <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                                        {Math.round(item.amount).toLocaleString('ru-RU')} ₽
+                                    </span>
+                                </div>
+                                <div className="cat-progress">
+                                    <div
+                                        className="cat-bar"
+                                        style={{ width: `${item.percent}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                {currentStats.categoryBreakdown.length === 0 && (
+                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>
+                        Нет расходов за этот период
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
