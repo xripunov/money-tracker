@@ -21,6 +21,7 @@ function App() {
     getStats,
     getTotalBalance,
     groupByDate,
+    storageType,
   } = useTransactions();
 
   const balances = getTotalBalance();
