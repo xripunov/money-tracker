@@ -4,15 +4,47 @@ import { isTelegramEnv } from '../utils/telegramStorage';
 export default function BalanceSetupModal({ initialBalances, onSave, onClose, storageType }) {
     const [current, setCurrent] = useState('');
     const [savings, setSavings] = useState('');
+    const [debugInfo, setDebugInfo] = useState({
+        storage: 'Loading...',
+        telegram: 'Checking...',
+        platform: 'Loading...',
+        userId: 'Loading...'
+    });
 
     useEffect(() => {
         const saved = localStorage.getItem('initial-balances');
         if (saved) {
-            const parsed = JSON.parse(saved);
-            setCurrent(String(parsed.current || 0));
-            setSavings(String(parsed.savings || 0));
+            try {
+                const parsed = JSON.parse(saved);
+                setCurrent(String(parsed.current || 0));
+                setSavings(String(parsed.savings || 0));
+            } catch (e) {
+                console.error("Error parsing initial balances", e);
+            }
         }
-    }, []);
+
+        // Safely gather debug info
+        try {
+            const isTG = isTelegramEnv();
+            const platform = window.Telegram?.WebApp?.platform || 'Unknown';
+            const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'Unknown';
+
+            setDebugInfo({
+                storage: storageType === 'cloudStorage' ? '☁️ Cloud' : '💾 Local',
+                telegram: isTG ? '✅ Detected' : '❌ Not Detected',
+                platform: platform,
+                userId: String(userId)
+            });
+        } catch (e) {
+            console.error("Error gathering debug info", e);
+            setDebugInfo({
+                storage: 'Error',
+                telegram: 'Error',
+                platform: 'Error',
+                userId: 'Error'
+            });
+        }
+    }, [storageType]);
 
     const handleSave = () => {
         const newBalances = {
@@ -76,12 +108,12 @@ export default function BalanceSetupModal({ initialBalances, onSave, onClose, st
                     </button>
                 </div>
 
-                <div className="debug-info" style={{ marginTop: '20px', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
+                <div className="debug-info" style={{ marginTop: '20px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
                     <div style={{ marginBottom: '4px' }}>📡 <strong>Sync Status:</strong></div>
-                    <div>Storage: {storageType === 'cloudStorage' ? '☁️ Cloud' : '💾 Local'}</div>
-                    <div>Telegram API: {isTelegramEnv() ? '✅ Detected' : '❌ Not Detected'}</div>
-                    <div>Platform: {window.Telegram?.WebApp?.platform || 'Unknown'}</div>
-                    <div>User ID: {window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'Unknown'}</div>
+                    <div>Storage: {debugInfo.storage}</div>
+                    <div>Telegram API: {debugInfo.telegram}</div>
+                    <div>Platform: {debugInfo.platform}</div>
+                    <div>User ID: {debugInfo.userId}</div>
                 </div>
             </div>
         </div>
